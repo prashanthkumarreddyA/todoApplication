@@ -3,7 +3,7 @@ const path = require("path");
 const { open } = require("sqlite");
 const sqlite3 = require("sqlite3");
 const isValid = require("date-fns/isValid");
-
+const format = require("date-fns/format");
 const app = express();
 app.use(express.json());
 const dbPath = path.join(__dirname, "todoApplication.db");
@@ -56,7 +56,7 @@ const hasCategoryProperty = (requestQuery) => {
 };
 
 const hasDueDateProperty = (requestQuery) => {
-  return requestQuery.due_date !== undefined;
+  return requestQuery.dueDate !== undefined;
 };
 
 const isValidTodoPriority = (item) => {
@@ -218,7 +218,6 @@ app.get("/todos/", async (request, response) => {
       }
       break;
     default:
-      console.log(isValid(new Date(item)));
       getTodosQuery = `
    SELECT
     *
@@ -246,15 +245,15 @@ app.get("/todos/:todoId/", async (request, response) => {
 //Get Todo API
 app.get("/agenda/", async (request, response) => {
   const { date } = request.query;
-
+  const formattedDate = format(new Date(date), "yyyy-MM-dd");
   const getTodoQuery = `SELECT
       *
     FROM
       todo
     WHERE
-      due_date= '${date}';`;
+      due_date= '${formattedDate}';`;
   const todo = await db.all(getTodoQuery);
-  if (isValidTodoDueDate(date)) {
+  if (isValidTodoDueDate(formattedDate)) {
     response.send(todo.map((object) => convertDueDate(object)));
   } else {
     response.status(400);
@@ -266,6 +265,7 @@ app.get("/agenda/", async (request, response) => {
 app.post("/todos/", async (request, response) => {
   const todoDetails = request.body;
   const { id, todo, priority, status, category, dueDate } = todoDetails;
+  const formattedDate = format(new Date(dueDate), "yyyy-MM-dd");
   switch (false) {
     case isValidTodoPriority(priority):
       response.status(400);
@@ -279,13 +279,13 @@ app.post("/todos/", async (request, response) => {
       response.status(400);
       response.send("Invalid Todo Category");
       break;
-    case isValidTodoDueDate(dueDate):
+    case isValidTodoDueDateToPut(dueDate):
       response.status(400);
       response.send("Invalid Due Date");
       break;
     default:
       const addTodoQuery = `INSERT INTO
-        todo (id,todo,priority,status,category,dueDate)
+        todo (id,todo,priority,status,category,due_date)
         VALUES
         (
         ${id},
@@ -293,7 +293,7 @@ app.post("/todos/", async (request, response) => {
          '${priority}',
          '${status}',
          '${category}',
-         '${dueDate}'
+         '${formattedDate}'
             );`;
       const dbResponse = await db.run(addTodoQuery);
       response.send("Todo Successfully Added");
